@@ -1,0 +1,9 @@
+
+.btn-container{
+  display: flex;
+  justify-content: space-evenly;
+}
+
+body{
+  width: 350px;
+}
