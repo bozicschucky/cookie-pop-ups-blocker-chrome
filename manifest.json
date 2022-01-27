@@ -6,8 +6,9 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
   "action": {
+    "default_title": "Block cookie pop ups and sign up pop ups for the current website",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "/images/get_started16.png",
