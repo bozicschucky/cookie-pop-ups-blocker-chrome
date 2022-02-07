@@ -22,7 +22,17 @@ cookieCheckBox.addEventListener("click", (e) => {
   if (e.target.checked) {
     sendMessageToContentScript({ msg: "cookieBlockerChecked" });
   } else {
-    console.log("checked not checked");
     sendMessageToContentScript({ msg: "cookieBlockerUnChecked" });
   }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  chrome.storage.sync.get("blockCookies", (storage) => {
+    const checkedState = storage.blockCookies;
+    if (checkedState) {
+      cookieCheckBox.checked = true;
+    } else {
+      cookieCheckBox.checked = false;
+    }
+  });
 });
