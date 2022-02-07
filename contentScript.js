@@ -22,9 +22,6 @@ const removeCookieElements = () => {
     }
   });
 
-  // remove the cookie divs
-  cookieElms.forEach((el) => el.remove());
-
   // make the cookie divs invisible
   cookieElms.forEach((el) => {
     el.style.display = "none";
@@ -32,17 +29,28 @@ const removeCookieElements = () => {
 };
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
-  if (msg.greeting == "getDom") {
-    sendResponse({
-      msg: "dom loaded",
-      dom,
-    });
-  }
   if (msg.msg === "cookieBlockerChecked") {
-    console.log(msg.msg);
-    removeCookieElements();
+    chrome.storage.sync.set({ blockCookies: true });
   }
   if (msg.msg === "cookieBlockerUnChecked") {
-    console.log(msg.msg);
+    chrome.storage.sync.set({ blockCookies: false });
+  }
+
+  chrome.storage.sync.get("blockCookies", (storage) => {
+    console.log("the cookies status is: ", storage.blockCookies);
+  });
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.blockCookies) {
+    removeCookieElements();
+  }
+});
+
+//disable the cookie popups on the page start up
+chrome.storage.sync.get("blockCookies", (storage) => {
+  const cookiesBlocked = storage.blockCookies;
+  if (cookiesBlocked) {
+    removeCookieElements();
   }
 });
