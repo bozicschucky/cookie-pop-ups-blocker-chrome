@@ -26,9 +26,9 @@ const removeCookieElements = () => {
   cookieElms.forEach((el) => el.remove());
 
   // make the cookie divs invisible
-  // cookieElms.forEach((el) => {
-  //   el.style.display = "none";
-  // });
+  cookieElms.forEach((el) => {
+    el.style.display = "none";
+  });
 };
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
