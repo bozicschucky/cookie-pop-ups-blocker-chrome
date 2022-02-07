@@ -35,10 +35,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (msg.msg === "cookieBlockerUnChecked") {
     chrome.storage.sync.set({ blockCookies: false });
   }
-
-  chrome.storage.sync.get("blockCookies", (storage) => {
-    console.log("the cookies status is: ", storage.blockCookies);
-  });
 });
 
 chrome.storage.onChanged.addListener((changes) => {
