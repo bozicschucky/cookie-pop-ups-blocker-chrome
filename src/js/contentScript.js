@@ -1,18 +1,22 @@
 const removeCookieElements = () => {
   const dom = document.querySelectorAll("*");
   // regex to match a sentence that contains the word cookie(s) case insensitive
-  const regex = /cookie(s)?/gi;
+  const regex = /cookies?/gi;
   // regex that that matches a sentence that contains this site or this website
   const thisSiteRegex = /(this site|this website |our site| our website)/gi;
   // regex that matches a sentence that contains the word uses cookie(s) case insensitive
-  const usesCookieRegex = /use(s) cookie(s)?/gi;
+  const usesCookieRegex = /uses? cookies?/gi;
+  const cookiePolicyRegex = /cookies? policy/gi;
 
   // find all the elements that have the word cookie(s) in their text
-  const AllCookieElements = Array.from(dom).filter(
-    (el) =>
+  const AllCookieElements = Array.from(dom).filter((el) => {
+    if (
       (el.textContent.match(regex) && el.textContent.match(thisSiteRegex)) ||
       el.textContent.match(usesCookieRegex)
-  );
+    ) {
+      return el;
+    }
+  });
   let cookieElms = [];
   // filter out the elements that are body or html
   AllCookieElements.forEach((el) => {
