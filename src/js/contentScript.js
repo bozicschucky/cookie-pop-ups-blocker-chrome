@@ -3,9 +3,9 @@ const removeCookieElements = () => {
   // regex to match a sentence that contains the word cookie(s) case insensitive
   const regex = /cookie(s)?/gi;
   // regex that that matches a sentence that contains this site or this website
-  const thisSiteRegex = /(this site|this website)/gi;
+  const thisSiteRegex = /(this site|this website |our site| our website)/gi;
   // regex that matches a sentence that contains the word uses cookie(s) case insensitive
-  const usesCookieRegex = /uses cookie(s)?/gi;
+  const usesCookieRegex = /use(s) cookie(s)?/gi;
 
   // find all the elements that have the word cookie(s) in their text
   const AllCookieElements = Array.from(dom).filter(
@@ -14,7 +14,6 @@ const removeCookieElements = () => {
       el.textContent.match(usesCookieRegex)
   );
   let cookieElms = [];
-
   // filter out the elements that are body or html
   AllCookieElements.forEach((el) => {
     if (el.tagName !== "BODY" && el.tagName !== "HTML") {
@@ -50,3 +49,14 @@ chrome.storage.sync.get("blockCookies", (storage) => {
     removeCookieElements();
   }
 });
+
+// disable cookie popups that take some time to load
+const timer = setTimeout(() => {
+  console.log("removing elements after some time");
+  chrome.storage.sync.get("blockCookies", (storage) => {
+    const cookiesBlocked = storage.blockCookies;
+    if (cookiesBlocked) {
+      removeCookieElements();
+    }
+  });
+}, 5000);
