@@ -1,9 +1,10 @@
 {
-  "name": "cookie and sign up pop up blocker",
-  "description": "Blocks the mandatory cookie and sign up pop ups that appear on websites",
+  "name": "Cookie Popup Blocker",
+  "description": "Removes intrusive cookie popups.",
   "version": "1.0",
   "manifest_version": 3,
-  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs"],
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Block cookie pop ups and sign up pop ups for the current website",
     "default_popup": "/src/popup.html",
