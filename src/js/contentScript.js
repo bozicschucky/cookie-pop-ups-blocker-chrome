@@ -1,9 +1,20 @@
 let observerStarted = false;
 const hiddenElements = new Set();
-const TARGET_SCORE = 7;
 
-// Common patterns
-const patterns = [
+// Heuristic-based scoring criteria for identifying cookie consent overlays
+const SCORING_RULES = {
+  positionScore: 2, // Score for fixed/absolute position
+  highZIndexScore: 2, // Score for zIndex > 800
+  textMatchScore: 3, // Score for encountering certain cookie/consent words
+  acceptWordScore: 1, // Additional score if text includes "accept"
+  buttonScore: 1, // Having a button boosts score
+  privacyLinkScore: 1, // Having a privacy link
+  coverageScore: 2, // Large coverage on screen
+  threshold: 8.7, // Hide if total score >= threshold
+};
+
+// A broad range of words that might indicate cookie consent
+const textPatterns = [
   "cookie",
   "cookies",
   "consent",
@@ -13,6 +24,7 @@ const patterns = [
   "agree",
   "banner",
   "modal",
+  "policy",
 ];
 
 function isEssentialElement(el) {
@@ -27,6 +39,7 @@ function isEssentialElement(el) {
   ];
   const essentialRoles = ["main", "navigation", "banner", "contentinfo"];
   return (
+    !el ||
     essentialTags.includes(el.tagName) ||
     essentialRoles.includes(el.getAttribute("role")) ||
     el.id === "main" ||
@@ -34,61 +47,77 @@ function isEssentialElement(el) {
   );
 }
 
-function scoreElement(el) {
-  try {
-    if (isEssentialElement(el)) return 0;
-    let score = 0;
-    const style = window.getComputedStyle(el);
-    const rect = el.getBoundingClientRect();
-    if (style.position === "fixed") score += 2;
-    if (parseInt(style.zIndex, 10) > 1000) score += 2;
+function isLargeOverlay(el) {
+  const rect = el.getBoundingClientRect();
+  const style = window.getComputedStyle(el);
 
-    const text = el.textContent?.toLowerCase() || "";
-    if (patterns.some((p) => text.includes(p))) score += 3;
-    if (text.includes("accept")) score += 1;
-    if (el.querySelector('button, [role="button"]')) score += 1;
-    if (el.querySelector('a[href*="privacy"]')) score += 1;
-    return score;
-  } catch (error) {
-    console.error("Error in scoreElement:", error);
-    return 0;
-  }
+  // Broad condition for an overlay that covers a significant portion
+  return (
+    rect.width >= window.innerWidth * 0.5 &&
+    rect.height >= window.innerHeight * 0.3 &&
+    (style.position === "fixed" || style.position === "absolute") &&
+    parseInt(style.zIndex, 10) > 800
+  );
 }
 
-function fixOverlay() {
-  // Restore scroll if body is locked
+function scoreElement(el) {
+  if (isEssentialElement(el)) return 0;
+
+  let score = 0;
+  const style = window.getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  const text = el.textContent?.toLowerCase() || "";
+
+  // Position and z-index
+  if (["fixed", "absolute"].includes(style.position)) {
+    score += SCORING_RULES.positionScore;
+  }
+  if (parseInt(style.zIndex, 10) > 800) {
+    score += SCORING_RULES.highZIndexScore;
+  }
+
+  console.log("Matched text: ", text);
+  // Text patterns
+  if (textPatterns.some((p) => text.includes(p))) {
+    score += SCORING_RULES.textMatchScore;
+  }
+
+  // Specific words and elements
+  if (text.includes("accept")) score += SCORING_RULES.acceptWordScore;
+  if (el.querySelector('button, [role="button"]'))
+    score += SCORING_RULES.buttonScore;
+  if (el.querySelector('a[href*="privacy"]'))
+    score += SCORING_RULES.privacyLinkScore;
+
+  // Coverage check
+  const coversEnough =
+    rect.width >= window.innerWidth * 0.5 &&
+    rect.height >= window.innerHeight * 0.3;
+  if (coversEnough) score += SCORING_RULES.coverageScore;
+
+  return score;
+}
+
+// Try hiding leftover overlays (large, high-zIndex, covering screen)
+function removeLeftoverOverlays() {
   document.body.style.overflow = "auto";
-
-  // Only remove overlays if they are likely part of the cookie modal
-  const overlays = document.querySelectorAll(
-    "[class*='overlay'],[class*='backdrop'],[class*='modal']"
-  );
-  overlays.forEach((overlay) => {
-    // Gather overlay characteristics
-    const text = overlay.textContent?.toLowerCase() || "";
-    const rect = overlay.getBoundingClientRect();
-    const style = window.getComputedStyle(overlay);
-    const isCoveringScreen =
-      rect.width >= window.innerWidth * 0.8 &&
-      rect.height >= window.innerHeight * 0.8;
-    const isFixed = style.position === "fixed" || style.position === "absolute";
-
-    // Hide only if overlay is big, fixed, and has cookie/consent references
-    if (isCoveringScreen && isFixed && patterns.some((p) => text.includes(p))) {
-      overlay.style.display = "none";
+  const allElements = document.querySelectorAll("*");
+  allElements.forEach((el) => {
+    if (isLargeOverlay(el)) {
+      el.style.display = "none";
     }
   });
 }
 
 function checkAndHide(el) {
   if (!el || hiddenElements.has(el) || isEssentialElement(el)) return;
-  const elScore = scoreElement(el);
-  if (elScore >= TARGET_SCORE) {
+  const s = scoreElement(el);
+
+  // If score is high enough, hide element, then remove leftover overlays
+  if (s >= SCORING_RULES.threshold) {
     el.style.display = "none";
     hiddenElements.add(el);
-
-    // Attempt to fix leftover overlays
-    fixOverlay();
+    removeLeftoverOverlays();
   }
 }
 
@@ -115,8 +144,9 @@ function initializeExtension() {
 
 // Start observing
 window.addEventListener("load", () => {
-  setTimeout(initializeExtension, 1000);
-  setTimeout(() => document.querySelectorAll("*").forEach(checkAndHide), 3000);
+  setTimeout(initializeExtension, 500);
+  // Periodically re-check in case the overlay reappears or changes
+  setTimeout(() => document.querySelectorAll("*").forEach(checkAndHide), 1000);
 });
 
 window.addEventListener("unload", () => {
