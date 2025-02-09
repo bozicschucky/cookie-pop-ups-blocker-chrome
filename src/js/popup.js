@@ -1,6 +1,8 @@
 const htmlDiv = document.getElementById("html");
-const cookieCheckBox = document.getElementById("cookie-pop-up-check-input");
-const signUpCheckBox = document.getElementById("sign-up-pop-up-check-input");
+const disableExtensionCheckBox = document.getElementById(
+  "disable-extension-check-input"
+);
+const popUpCountIndicator = document.getElementById("pop-up-count");
 
 const getCurrentTab = async () => {
   let queryOptions = { active: true, currentWindow: true };
@@ -10,24 +12,23 @@ const getCurrentTab = async () => {
 
 const sendMessageToContentScript = async (msg) => {
   let tab = await getCurrentTab();
-  chrome.tabs.sendMessage(tab.id, msg);
-};
-
-cookieCheckBox.addEventListener("click", (e) => {
-  if (e.target.checked) {
-    sendMessageToContentScript({ msg: "cookieBlockerChecked" });
-  } else {
-    sendMessageToContentScript({ msg: "cookieBlockerUnChecked" });
-  }
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  chrome.storage.sync.get("blockCookies", (storage) => {
-    const checkedState = storage.blockCookies;
-    if (checkedState) {
-      cookieCheckBox.checked = true;
-    } else {
-      cookieCheckBox.checked = false;
+  chrome.tabs.sendMessage(tab.id, msg, (response) => {
+    if (
+      msg.msg === "getPopUpCount" &&
+      response &&
+      response.count !== undefined
+    ) {
+      popUpCountIndicator.innerText = response.count;
     }
   });
+};
+
+disableExtensionCheckBox.addEventListener("click", (e) => {
+  sendMessageToContentScript({
+    msg: e.target.checked ? "disableExtension" : "enableExtension",
+  });
 });
+
+setInterval(() => {
+  sendMessageToContentScript({ msg: "getPopUpCount" });
+}, 1000);

@@ -3,24 +3,134 @@
 
 <head>
   <link rel="stylesheet" href="/src/css/style.css">
+  <style>
+    /* Overall page styling with a yellowish background */
+    body {
+      font-family: Arial, sans-serif;
+      padding: 16px;
+      /* light yellow */
+      background-color: #fff9c4;
+      color: #333;
+    }
+  
+    h3 {
+      margin-bottom: 12px;
+    }
+  
+    .toggle-container {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+  
+    .count-container,
+    .btn-container {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+    }
+  
+    .container {
+      position: relative;
+      padding-top: 10px;
+      padding-bottom: 10px;
+      cursor: pointer;
+      font-size: 1.1em;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      color: #333;
+    }
+  
+    .container input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
+    }
+  
+    .checkmark {
+      position: relative;
+      height: 24px;
+      width: 24px;
+      background-color: #eee;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      margin-right: 10px;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+  
+    .container:hover input~.checkmark {
+      background-color: #ddd;
+    }
+  
+    .container input:checked~.checkmark {
+      background-color: #fdd835;
+      border-color: #fbc02d;
+    }
+  
+    .checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+    }
+  
+    .container input:checked~.checkmark:after {
+      display: block;
+    }
+  
+    .container .checkmark:after {
+      left: 7px;
+      top: 3px;
+      width: 5px;
+      height: 10px;
+      border: solid #555;
+      border-width: 0 3px 3px 0;
+      transform: rotate(45deg);
+    }
+  
+    .count-container {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+  
+    .count-indicator {
+      color: #bf4511e0;
+      font-size: 1.5em;
+      margin-left: 8px;
+    }
+  
+    html,
+    body {
+      border: 2px solid #fff9c4;
+      /* yellow border */
+      outline: none;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+  </style>
 </head>
 
 <body>
   <h3>Pop up blocker</h3>
-  <!-- disable cookies pop ups -->
-  <div class="btn-conatiner">
+  <!-- Disable extension functionality -->
+  <div class="toggle-container">
     <label class="container">
-      <input type="checkbox" id="cookie-pop-up-check-input">
-      <span class="checkmark">disable cookie pops up</span>
+      <input type="checkbox" id="disable-extension-check-input">
+      <span class="checkmark"></span>
+      Disable Extension on This Page
     </label>
   </div>
 
-  <!-- disable sign up pop ups -->
-  <div class="btn-conatiner">
-    <label class="container">
-      <input type="checkbox" id="sign-up-pop-up-check-input">
-      <span class="checkmark">disable sign up/ login pops up</span>
-    </label>
+  <!-- Pop ups counter -->
+  <div class="count-container">
+    <span>Pop ups removed: </span>
+    <span id="pop-up-count" class="count-indicator">0</span>
   </div>
 
   <div id="html"></div>
