@@ -3,8 +3,8 @@ const hiddenElements = new Set();
 
 // Track DOM state and modifications
 const domState = {
-  originalOverflow: '',
-  originalPosition: '',
+  originalOverflow: "",
+  originalPosition: "",
   modifications: new Map(), // Store original styles of modified elements
   scrollPosition: 0,
   isPageBroken: false,
@@ -13,35 +13,40 @@ const domState = {
   scrollEnabled: true,
   lastScrollPosition: 0,
   bannerFound: false,
-  scrollWasDisabled: false
+  scrollWasDisabled: false,
+  initialScrollHeight: 0, // Add initialScrollHeight to domState
 };
 
 // DOM health check parameters
 const DOM_HEALTH = {
-  maxHeightReduction: 100, // max pixels the document height should reduce by
-  scrollCheckDelay: 250,   // ms to wait before checking scroll
-  recoveryAttempts: 2,     // number of times to try recovery
-  checkDuration: 1000,     // ms to monitor for issues
-  debounceDelay: 50,       // Debounce delay for multiple operations
-  removalTimeout: 150      // Time to wait before confirming removal
+  maxHeightReduction: 100,
+  scrollCheckDelay: 250,
+  recoveryAttempts: 2,
+  checkDuration: 1000,
+  debounceDelay: 50,
+  removalTimeout: 150,
 };
 
 // Performance optimization constants
 const PERFORMANCE = {
-  batchSize: 35,          // Increased for better initial detection
-  maxElementsPerCycle: 150, // Increased to catch more elements
-  cleanupInterval: 60000,  // Increased to 60s to reduce interference
-  processingDelay: 0,    // Changed to 0 for immediate processing
-  queryTimeout: 0,     // Reduced timeout
-  maxStoredElements: 1000, // Increased to prevent premature cleanup
-  initialScanDelay: 0,   // Changed to 0 for immediate scan
-  criticalScanDelay: 100, // Reduced delay
-  forcedRemovalDelay: 50 // New constant for forced removal
+  batchSize: 35,
+  maxElementsPerCycle: 150,
+  cleanupInterval: 60000,
+  processingDelay: 0,
+  queryTimeout: 0, //
+  maxStoredElements: 1000,
+  initialScanDelay: 0,
+  criticalScanDelay: 100,
+  forcedRemovalDelay: 50,
 };
 
 // Add removal tracking
 const removalQueue = new Set();
 let removingElements = false;
+
+// New globals for UI integration
+let popUpCount = 0;
+let extensionDisabled = false;
 
 function debounce(func, wait) {
   let timeout;
@@ -57,20 +62,21 @@ function debounce(func, wait) {
 
 // Enhance element removal with immediate visual hiding
 function hideElementImmediately(element) {
-  if (!element || hiddenElements.has(element)) return;
-  
+  if (!element || hiddenElements.has(element) || extensionDisabled) return;
+
   const style = window.getComputedStyle(element);
-  const isBannerOrOverlay = style.position === 'fixed' || style.position === 'absolute';
-  
+  const isBannerOrOverlay =
+    style.position === "fixed" || style.position === "absolute";
+
   // Only save scroll state if we found a banner/overlay
   if (isBannerOrOverlay) {
     domState.bannerFound = true;
     domState.lastScrollPosition = window.scrollY;
     domState.scrollWasDisabled = isScrollDisabled();
   }
-  
+
   saveElementState(element);
-  
+
   // Force hide with multiple methods
   element.style.cssText = `
     display: none !important;
@@ -85,10 +91,11 @@ function hideElementImmediately(element) {
     transform: scale(0) !important;
     max-height: 0 !important;
   `;
-  
+
   hiddenElements.add(element);
   removalQueue.add(element);
-  
+  popUpCount++; // Increment count for UI indicator
+
   // Only restore scroll if banner was affecting scroll
   if (isBannerOrOverlay && domState.scrollWasDisabled) {
     requestAnimationFrame(() => {
@@ -96,7 +103,7 @@ function hideElementImmediately(element) {
       if (domState.lastScrollPosition > 0) {
         window.scrollTo({
           top: domState.lastScrollPosition,
-          behavior: 'auto'
+          behavior: "auto",
         });
       }
     });
@@ -108,17 +115,19 @@ function isScrollDisabled() {
   const html = document.documentElement;
   const bodyStyle = window.getComputedStyle(body);
   const htmlStyle = window.getComputedStyle(html);
-  
-  return bodyStyle.overflow === 'hidden' || 
-         htmlStyle.overflow === 'hidden' ||
-         bodyStyle.position === 'fixed' ||
-         htmlStyle.position === 'fixed';
+
+  return (
+    bodyStyle.overflow === "hidden" ||
+    htmlStyle.overflow === "hidden" ||
+    bodyStyle.position === "fixed" ||
+    htmlStyle.position === "fixed"
+  );
 }
 
 function enableScroll() {
   const body = document.body;
   const html = document.documentElement;
-  
+
   if (domState.scrollWasDisabled) {
     body.style.cssText += `
       overflow: auto !important;
@@ -126,7 +135,7 @@ function enableScroll() {
       overflow-y: auto !important;
       position: static !important;
     `;
-    
+
     html.style.cssText += `
       overflow: auto !important;
       overflow-x: auto !important;
@@ -140,9 +149,9 @@ const processRemovalQueue = debounce(() => {
   removingElements = true;
 
   try {
-    Array.from(removalQueue).forEach(element => {
+    Array.from(removalQueue).forEach((element) => {
       if (!hiddenElements.has(element)) {
-        element.style.display = 'none';
+        element.style.display = "none";
         hiddenElements.add(element);
       }
     });
@@ -180,25 +189,25 @@ const textPatterns = [
 
 // Cookie banner detection heuristics
 const BANNER_HEURISTICS = {
-  positions: ['fixed', 'sticky', 'absolute'],
-  locations: ['top', 'bottom'],
+  positions: ["fixed", "sticky", "absolute"],
+  locations: ["top", "bottom"],
   maxHeight: window.innerHeight * 0.4,
   minTextLength: 30,
-  minScore: 3
+  minScore: 3,
 };
 
 function isBannerPosition(style) {
   const position = style.position;
-  const isBottom = style.bottom === '0px' || parseInt(style.bottom) === 0;
-  const isTop = style.top === '0px' || parseInt(style.top) === 0;
-  
+  const isBottom = style.bottom === "0px" || parseInt(style.bottom) === 0;
+  const isTop = style.top === "0px" || parseInt(style.top) === 0;
+
   return BANNER_HEURISTICS.positions.includes(position) && (isTop || isBottom);
 }
 
 function calculateBannerScore(element) {
   let score = 0;
   const style = window.getComputedStyle(element);
-  const text = element.textContent?.toLowerCase() || '';
+  const text = element.textContent?.toLowerCase() || "";
   const rect = element.getBoundingClientRect();
 
   // Position check
@@ -206,25 +215,30 @@ function calculateBannerScore(element) {
 
   // Size check
   if (rect.height < BANNER_HEURISTICS.maxHeight) score += 1;
-  
+
   // Content checks
   if (text.length >= BANNER_HEURISTICS.minTextLength) {
     // Check for cookie-related content density
-    const cookieTerms = textPatterns.filter(term => text.includes(term));
+    const cookieTerms = textPatterns.filter((term) => text.includes(term));
     score += cookieTerms.length * 0.5;
 
     // Check for interaction elements
-    const hasButtons = element.querySelectorAll('button, [role="button"], .button, input[type="button"]').length > 0;
-    const hasCheckbox = element.querySelectorAll('input[type="checkbox"]').length > 0;
+    const hasButtons =
+      element.querySelectorAll(
+        'button, [role="button"], .button, input[type="button"]'
+      ).length > 0;
+    const hasCheckbox =
+      element.querySelectorAll('input[type="checkbox"]').length > 0;
     if (hasButtons) score += 1;
     if (hasCheckbox) score += 0.5;
 
     // Check for privacy links
-    const hasPrivacyLinks = Array.from(element.querySelectorAll('a')).some(a => 
-      a.textContent.toLowerCase().includes('privacy') || 
-      a.href.toLowerCase().includes('privacy') ||
-      /polic(y|ies)/.test(a.href.toLowerCase()) ||
-      /cookies?/.test(a.href.toLowerCase())
+    const hasPrivacyLinks = Array.from(element.querySelectorAll("a")).some(
+      (a) =>
+        a.textContent.toLowerCase().includes("privacy") ||
+        a.href.toLowerCase().includes("privacy") ||
+        /polic(y|ies)/.test(a.href.toLowerCase()) ||
+        /cookies?/.test(a.href.toLowerCase())
     );
     if (hasPrivacyLinks) score += 1;
   }
@@ -240,15 +254,15 @@ const COOKIE_BANNER_SELECTORS = [
   '[id*="consent"]',
   '[class*="banner"]',
   '[class*="notice"]',
-  '.cc-window',
-  '#cookieConsent',
-  '.cookie-notice',
-  '.cookie-banner',
-  '.cookie-message',
-  '#gdpr-banner',
-  '.gdpr-notice',
-  '#onetrust-banner-sdk',
-  '.cookieBar',
+  ".cc-window",
+  "#cookieConsent",
+  ".cookie-notice",
+  ".cookie-banner",
+  ".cookie-message",
+  "#gdpr-banner",
+  ".gdpr-notice",
+  "#onetrust-banner-sdk",
+  ".cookieBar",
 ];
 
 function isEssentialElement(el) {
@@ -334,17 +348,23 @@ function removeLeftoverOverlays() {
   allElements.forEach((el) => {
     if (isLargeOverlay(el)) {
       el.style.display = "none";
-      
-      // Check if element might be affecting scroll
+
+      // Only restore scroll if element is likely a cookie banner and not on dynamic sites
       const style = window.getComputedStyle(el);
-      if (style.position === 'fixed' || style.position === 'absolute') {
+      if (
+        (style.position === "fixed" || style.position === "absolute") &&
+        isBannerPosition(style) &&
+        !isDynamicPage()
+      ) {
         restoreScroll();
       }
     }
   });
 
-  // Ensure scrolling is restored
-  restoreScroll();
+  // Restore scroll globally only if a banner was found and not on dynamic sites.
+  if (domState.bannerFound && !isDynamicPage()) {
+    restoreScroll();
+  }
 }
 
 function saveElementState(element) {
@@ -353,7 +373,7 @@ function saveElementState(element) {
       display: element.style.display,
       visibility: element.style.visibility,
       position: element.style.position,
-      zIndex: element.style.zIndex
+      zIndex: element.style.zIndex,
     });
   }
 }
@@ -370,53 +390,56 @@ function restoreElement(element) {
 function checkDOMHealth() {
   const beforeHeight = document.documentElement.scrollHeight;
   const beforeScroll = window.scrollY;
-  
+
   return new Promise((resolve) => {
     setTimeout(() => {
       // Check for severe DOM issues
-      const heightReduction = beforeHeight - document.documentElement.scrollHeight;
+      const heightReduction =
+        beforeHeight - document.documentElement.scrollHeight;
       const cantScroll = window.scrollY === beforeScroll && beforeScroll > 0;
-      const noVerticalScroll = document.documentElement.scrollHeight <= window.innerHeight;
-      const bodyHidden = window.getComputedStyle(document.body).display === 'none';
-      
-      domState.isPageBroken = (
+      const noVerticalScroll =
+        document.documentElement.scrollHeight <= window.innerHeight;
+      const bodyHidden =
+        window.getComputedStyle(document.body).display === "none";
+
+      domState.isPageBroken =
         heightReduction > DOM_HEALTH.maxHeightReduction ||
         cantScroll ||
         noVerticalScroll ||
-        bodyHidden
-      );
-      
-      const scrollDisabled = window.getComputedStyle(document.body).overflow === 'hidden' &&
-                        window.getComputedStyle(document.documentElement).overflow === 'hidden';
-                        
+        bodyHidden;
+
+      const scrollDisabled =
+        window.getComputedStyle(document.body).overflow === "hidden" &&
+        window.getComputedStyle(document.documentElement).overflow === "hidden";
+
       if (scrollDisabled) {
         restoreScroll();
       }
-      
+
       resolve(domState.isPageBroken);
     }, DOM_HEALTH.scrollCheckDelay);
   });
 }
 
 async function recoverDOM() {
-  console.warn('DOM recovery initiated');
-  
+  console.warn("DOM recovery initiated");
+
   // Restore body/html defaults first
   document.body.style.overflow = domState.originalOverflow;
   document.body.style.position = domState.originalPosition;
-  
+
   // Restore all modified elements
   for (const [element] of domState.modifications) {
     restoreElement(element);
   }
-  
+
   // Clear our tracking
   domState.modifications.clear();
   hiddenElements.clear();
-  
+
   // Restore scroll position
   window.scrollTo(0, domState.scrollPosition);
-  
+
   return await checkDOMHealth();
 }
 
@@ -427,11 +450,24 @@ async function safeHideElement(element) {
 }
 
 function checkAndHide(el) {
-  if (!el || hiddenElements.has(el) || isEssentialElement(el)) return;
-  const s = scoreElement(el);
+  if (
+    extensionDisabled ||
+    !el ||
+    hiddenElements.has(el) ||
+    isEssentialElement(el)
+  )
+    return;
+  const text = (el.textContent || "").toLowerCase();
+  // Only consider elements containing explicit cookie, consent or privacy cues.
+  if (!/cookie|consent|privacy/.test(text)) return;
 
-  // If score is high enough, hide element, then remove leftover overlays
-  if (s >= SCORING_RULES.threshold) {
+  // Use the enhanced scoring system if available.
+  const score =
+    typeof calculateEnhancedScore === "function"
+      ? calculateEnhancedScore(el)
+      : scoreElement(el);
+  if (score >= 7) {
+    // refined threshold
     safeHideElement(el);
     removeLeftoverOverlays();
   }
@@ -439,12 +475,13 @@ function checkAndHide(el) {
 
 // Add helper functions for performance optimization
 function isNavigationMenu(element) {
-  return element.querySelector('nav') || 
-         element.querySelectorAll('a').length > 5;
+  return (
+    element.querySelector("nav") || element.querySelectorAll("a").length > 5
+  );
 }
 
 function isTooComplex(element) {
-  return element.querySelectorAll('*').length > 50;
+  return element.querySelectorAll("*").length > 50;
 }
 
 // Optimize element check with batch processing
@@ -458,8 +495,8 @@ function batchProcessElements(elements, processor) {
   function processBatch() {
     if (batches.length === 0) return;
     const batch = batches.shift();
-    
-    batch.forEach(element => {
+
+    batch.forEach((element) => {
       if (processed < PERFORMANCE.maxElementsPerCycle) {
         processor(element);
         processed++;
@@ -478,32 +515,39 @@ function batchProcessElements(elements, processor) {
 function detectSimpleCookieBanner() {
   if (removingElements) return;
 
-  // Immediate removal of known cookie banners
-  COOKIE_BANNER_SELECTORS.forEach(selector => {
+  COOKIE_BANNER_SELECTORS.forEach((selector) => {
     try {
-      document.querySelectorAll(selector).forEach(element => {
+      document.querySelectorAll(selector).forEach((element) => {
         if (!hiddenElements.has(element) && !isEssentialElement(element)) {
-          hideElementImmediately(element);
+          const text = (element.textContent || "").toLowerCase();
+          if (/cookie|consent|privacy/.test(text)) {
+            hideElementImmediately(element);
+          }
         }
       });
     } catch (e) {
-      console.warn('Selector error:', selector, e);
+      console.warn("Selector error:", selector, e);
     }
   });
 
-  // Check for other potential banners
-  document.querySelectorAll('div, section, aside, footer').forEach(element => {
-    if (!hiddenElements.has(element) && !isEssentialElement(element)) {
-      const score = calculateBannerScore(element);
-      if (score >= BANNER_HEURISTICS.minScore) {
-        if (!isNavigationMenu(element) && !isTooComplex(element)) {
-          hideElementImmediately(element);
+  document
+    .querySelectorAll("div, section, aside, footer")
+    .forEach((element) => {
+      if (!hiddenElements.has(element) && !isEssentialElement(element)) {
+        const text = (element.textContent || "").toLowerCase();
+        if (/cookie|consent|privacy/.test(text)) {
+          const score = calculateBannerScore(element);
+          if (
+            score >= BANNER_HEURISTICS.minScore &&
+            !isNavigationMenu(element) &&
+            !isTooComplex(element)
+          ) {
+            hideElementImmediately(element);
+          }
         }
       }
-    }
-  });
+    });
 
-  // Force cleanup of any remaining overlays
   removeLeftoverOverlays();
 }
 
@@ -511,96 +555,100 @@ function detectSimpleCookieBanner() {
 const PROTECTED_ELEMENTS = {
   selectors: [
     'form:not([class*="cookie"]):not([class*="consent"])',
-    'nav, .navigation, .menu',
+    "nav, .navigation, .menu",
     'header:not([class*="cookie"]):not([class*="consent"])',
     '.sidebar:not([class*="cookie"]):not([class*="consent"])',
-    'main, article, .content, #content',
-    '.search-form, .search-bar',
-    '.shopping-cart, .cart',
+    "main, article, .content, #content",
+    ".search-form, .search-bar",
+    ".shopping-cart, .cart",
     '.modal:not([class*="cookie"]):not([class*="consent"])',
-    '.login, .signup, .authentication',
+    ".login, .signup, .authentication",
     '[role="main"], [role="navigation"]',
-    '.site-header, .main-header'
+    ".site-header, .main-header",
   ],
-  classes: ['menu', 'nav', 'header', 'content', 'main', 'footer'],
-  roles: ['navigation', 'main', 'banner', 'contentinfo', 'search', 'form']
+  classes: ["menu", "nav", "header", "content", "main", "footer"],
+  roles: ["navigation", "main", "banner", "contentinfo", "search", "form"],
 };
 
-// More precise cookie banner patterns
 const COOKIE_PATTERNS = {
   text: [
     /\b(accept|agree|allow).{0,30}(cookies?|privacy|terms)/i,
     /\b(cookie|privacy|gdpr).{0,30}(notice|banner|consent|policy)/i,
     /\b(we use|this site uses).{0,30}(cookies?|tracking)/i,
-    /\b(privacy|cookie).{0,30}(settings|preferences)/i
+    /\b(privacy|cookie).{0,30}(settings|preferences)/i,
   ],
   buttons: [
     /\b(accept|agree|allow|got it|ok|dismiss)\b/i,
     /\b(reject|decline|deny)\b/i,
-    /\b(cookie|privacy).{0,20}(settings|preferences)\b/i
+    /\b(cookie|privacy).{0,20}(settings|preferences)\b/i,
   ],
   classes: [
     /(cookie|consent|privacy|gdpr)-?(banner|notice|popup|alert|dialog)/i,
-    /cc-window|cookie-law|cookie-message/i
+    /cc-window|cookie-law|cookie-message/i,
   ],
-  // Common cookie banner frameworks
+
   frameworks: [
-    '#onetrust-banner-sdk',
-    '#CybotCookiebotDialog',
-    '#cmplz-cookie-banner',
-    '.cc-window.cc-banner',
-    '#cookieConsentContainer'
-  ]
+    "#onetrust-banner-sdk",
+    "#CybotCookiebotDialog",
+    "#cmplz-cookie-banner",
+    ".cc-window.cc-banner",
+    "#cookieConsentContainer",
+  ],
 };
 
 // Enhanced scoring system
 function calculateEnhancedScore(element) {
   if (isProtectedElement(element)) return 0;
-  
+
   let score = 0;
-  const text = element.textContent?.toLowerCase() || '';
+  const text = element.textContent?.toLowerCase() || "";
   const rect = element.getBoundingClientRect();
   const computedStyle = window.getComputedStyle(element);
-  
+
   // Position and style checks
   if (isOverlayPosition(computedStyle)) score += 2;
   if (hasHighZIndex(computedStyle)) score += 1;
-  
+
   // Content analysis
   if (containsCookiePatterns(text)) score += 3;
   if (hasConsentButtons(element)) score += 2;
   if (hasPrivacyLinks(element)) score += 1;
-  
+
   // Framework detection
   if (isCookieBannerFramework(element)) score += 4;
-  
+
   // Visual characteristics
   if (isBannerShaped(rect)) score += 1;
   if (isReasonableSize(rect)) score += 1;
-  
+
   return score;
 }
 
 function isProtectedElement(element) {
   // Check if element matches any protected selector
-  if (PROTECTED_ELEMENTS.selectors.some(selector => element.matches(selector))) {
+  if (
+    PROTECTED_ELEMENTS.selectors.some((selector) => element.matches(selector))
+  ) {
     return true;
   }
 
   // Check for protected classes
-  if (PROTECTED_ELEMENTS.classes.some(cls => element.classList.contains(cls))) {
+  if (
+    PROTECTED_ELEMENTS.classes.some((cls) => element.classList.contains(cls))
+  ) {
     return true;
   }
 
   // Check roles
-  const role = element.getAttribute('role');
+  const role = element.getAttribute("role");
   if (role && PROTECTED_ELEMENTS.roles.includes(role)) {
     return true;
   }
 
   // Check for forms with user input
-  if (element.tagName === 'FORM' || element.querySelector('form')) {
-    const hasInputs = element.querySelectorAll('input:not([type="button"])').length > 0;
+  if (element.tagName === "FORM" || element.querySelector("form")) {
+    const hasInputs =
+      element.querySelectorAll('input:not([type="button"])').length > 0;
     if (hasInputs) return true;
   }
 
@@ -614,18 +662,20 @@ function isProtectedElement(element) {
 }
 
 function isCookieBannerFramework(element) {
-  return COOKIE_PATTERNS.frameworks.some(selector => element.matches(selector));
+  return COOKIE_PATTERNS.frameworks.some((selector) =>
+    element.matches(selector)
+  );
 }
 
 function containsCookiePatterns(text) {
-  return COOKIE_PATTERNS.text.some(pattern => pattern.test(text));
+  return COOKIE_PATTERNS.text.some((pattern) => pattern.test(text));
 }
 
 function hasConsentButtons(element) {
   const buttons = element.querySelectorAll('button, [role="button"], .button');
-  return Array.from(buttons).some(button => 
-    COOKIE_PATTERNS.buttons.some(pattern => 
-      pattern.test(button.textContent || '')
+  return Array.from(buttons).some((button) =>
+    COOKIE_PATTERNS.buttons.some((pattern) =>
+      pattern.test(button.textContent || "")
     )
   );
 }
@@ -642,7 +692,7 @@ function safeHideElement(element) {
     display: element.style.display,
     visibility: element.style.visibility,
     position: element.style.position,
-    zIndex: element.style.zIndex
+    zIndex: element.style.zIndex,
   };
 
   // Apply minimal hiding styles
@@ -663,65 +713,86 @@ function safeHideElement(element) {
 }
 
 // Modified observer to use optimizations
-const observer = new MutationObserver(throttle((mutations) => {
-  if (removingElements) return;
+const observer = new MutationObserver(
+  throttle((mutations) => {
+    if (removingElements) return;
 
-  const validMutations = mutations.filter(mutation => {
-    const target = mutation.target;
-    return !hiddenElements.has(target) && 
-           !Array.from(hiddenElements).some(hidden => hidden.contains(target));
-  }).slice(0, PERFORMANCE.maxElementsPerCycle);
+    const validMutations = mutations
+      .filter((mutation) => {
+        const target = mutation.target;
+        return (
+          !hiddenElements.has(target) &&
+          !Array.from(hiddenElements).some((hidden) => hidden.contains(target))
+        );
+      })
+      .slice(0, PERFORMANCE.maxElementsPerCycle);
 
-  if (validMutations.length === 0) return;
+    if (validMutations.length === 0) return;
 
-  batchProcessElements(validMutations, mutation => {
-    if (mutation.type === 'childList') {
-      mutation.addedNodes.forEach(node => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          checkAndHide(node);
-          batchProcessElements(node.querySelectorAll('*'), checkAndHide);
-        }
-      });
-    } else if (mutation.type === 'attributes') {
-      checkAndHide(mutation.target);
-    }
-  });
+    batchProcessElements(validMutations, (mutation) => {
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            checkAndHide(node);
+            batchProcessElements(node.querySelectorAll("*"), checkAndHide);
+          }
+        });
+      } else if (mutation.type === "attributes") {
+        checkAndHide(mutation.target);
+      }
+    });
 
-  detectSimpleCookieBanner();
-}, PERFORMANCE.processingDelay));
+    detectSimpleCookieBanner();
+  }, PERFORMANCE.processingDelay)
+);
+
+// New runtime messaging handler for UI and disable toggle.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.msg === "getPopUpCount") {
+    sendResponse({ count: popUpCount });
+  } else if (message.msg === "disableExtension") {
+    extensionDisabled = true;
+  } else if (message.msg === "enableExtension") {
+    extensionDisabled = false;
+    // Optionally reinitialize detection:
+    initializeExtension();
+  }
+});
 
 // Update initialization to handle initial elements more efficiently
 function initializeExtension() {
   if (observerStarted) return;
-  
+
   domState.originalOverflow = document.body.style.overflow;
   domState.originalPosition = document.body.style.position;
   domState.bannerFound = false;
   domState.scrollWasDisabled = isScrollDisabled();
-  
-  // Remove initial scroll position save
-  // domState.scrollPosition = window.scrollY;
-  
+
+  // Record the initial scroll height for dynamic page detection.
+  domState.initialScrollHeight = document.documentElement.scrollHeight;
+
   // Immediate scan for obvious cookie banners
   detectSimpleCookieBanner();
-  
+
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: true, // Added to catch attribute changes
-    attributeFilter: ['style', 'class', 'id'], // Only watch relevant attributes
-    characterData: true
+    attributeFilter: ["style", "class", "id"], // Only watch relevant attributes
+    characterData: true,
   });
-  
+
   // Process initial elements efficiently
-  const initialElements = Array.from(document.querySelectorAll("*"))
-    .slice(0, PERFORMANCE.maxElementsPerCycle * 2);
-  
+  const initialElements = Array.from(document.querySelectorAll("*")).slice(
+    0,
+    PERFORMANCE.maxElementsPerCycle * 2
+  );
+
   batchProcessElements(initialElements, checkAndHide);
-  
+
   // Secondary scan after short delay
   setTimeout(detectSimpleCookieBanner, 100);
-  
+
   // Final cleanup scan
   setTimeout(() => {
     detectSimpleCookieBanner();
@@ -734,10 +805,10 @@ function initializeExtension() {
 // Start observing
 window.addEventListener("load", () => {
   initializeExtension();
-  
+
   // Multiple passes to catch dynamic content
   const checkIntervals = [0, 100, 500, 1000, 2000];
-  checkIntervals.forEach(delay => {
+  checkIntervals.forEach((delay) => {
     setTimeout(() => {
       detectSimpleCookieBanner();
       processRemovalQueue();
@@ -756,11 +827,11 @@ let processingTimeout = null;
 
 function throttle(func, limit) {
   let inThrottle;
-  return function(...args) {
+  return function (...args) {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => (inThrottle = false), limit);
     }
   };
 }
@@ -768,20 +839,24 @@ function throttle(func, limit) {
 // Memory cleanup function
 function performMemoryCleanup() {
   if (Date.now() - lastCleanupTime < PERFORMANCE.cleanupInterval) return;
-  
+
   // Only cleanup if we're well over the limits
   if (domState.modifications.size > PERFORMANCE.maxStoredElements * 1.5) {
-    const entriesToRemove = Array.from(domState.modifications.entries())
-      .slice(0, domState.modifications.size - PERFORMANCE.maxStoredElements);
+    const entriesToRemove = Array.from(domState.modifications.entries()).slice(
+      0,
+      domState.modifications.size - PERFORMANCE.maxStoredElements
+    );
     entriesToRemove.forEach(([key]) => domState.modifications.delete(key));
   }
 
   // Keep more hidden elements in memory
   if (hiddenElements.size > PERFORMANCE.maxStoredElements * 2) {
     const elementsArray = Array.from(hiddenElements);
-    const excessElements = elementsArray.slice(0, 
-      hiddenElements.size - PERFORMANCE.maxStoredElements);
-    excessElements.forEach(el => hiddenElements.delete(el));
+    const excessElements = elementsArray.slice(
+      0,
+      hiddenElements.size - PERFORMANCE.maxStoredElements
+    );
+    excessElements.forEach((el) => hiddenElements.delete(el));
   }
 
   lastCleanupTime = Date.now();
@@ -793,7 +868,7 @@ const optimizedQuerySelector = (selector, isPriority = false) => {
     // Direct query for better performance
     return document.querySelectorAll(selector);
   } catch (e) {
-    console.warn('Selector error:', e);
+    console.warn("Selector error:", e);
     return [];
   }
 };
@@ -803,68 +878,65 @@ const SCROLL_FIXES = {
   retryAttempts: 3,
   retryDelay: 100,
   properties: [
-    'overflow',
-    'overflow-x',
-    'overflow-y',
-    'position',
-    'height',
-    'min-height'
-  ]
+    "overflow",
+    "overflow-x",
+    "overflow-y",
+    "position",
+    "height",
+    "min-height",
+  ],
 };
 
 // Add these new functions for scroll management
 function saveScrollState() {
   const body = document.body;
   const html = document.documentElement;
-  
-  domState.originalBodyStyles = SCROLL_FIXES.properties.reduce((styles, prop) => {
-    styles[prop] = body.style[prop];
-    return styles;
-  }, {});
-  
-  domState.originalHtmlStyles = SCROLL_FIXES.properties.reduce((styles, prop) => {
-    styles[prop] = html.style[prop];
-    return styles;
-  }, {});
+
+  domState.originalBodyStyles = SCROLL_FIXES.properties.reduce(
+    (styles, prop) => {
+      styles[prop] = body.style[prop];
+      return styles;
+    },
+    {}
+  );
+
+  domState.originalHtmlStyles = SCROLL_FIXES.properties.reduce(
+    (styles, prop) => {
+      styles[prop] = html.style[prop];
+      return styles;
+    },
+    {}
+  );
 }
 
 // Modify the existing restoreScroll function
 function restoreScroll() {
-  // Only restore if we actually found and removed a banner
-  if (!domState.bannerFound) return;
-  
-  enableScroll();
-  
-  if (domState.lastScrollPosition > 0) {
-    requestAnimationFrame(() => {
-      window.scrollTo({
-        top: domState.lastScrollPosition,
-        behavior: 'auto'
-      });
-    });
-  }
-}
+  if (isDynamicPage()) return;
 
-function restoreScroll() {
   const body = document.body;
   const html = document.documentElement;
-
-  // Only modify overflow if it's currently hidden
-  if (window.getComputedStyle(body).overflow === 'hidden' ||
-      window.getComputedStyle(html).overflow === 'hidden') {
-    
+  if (
+    window.getComputedStyle(body).overflow === "hidden" ||
+    window.getComputedStyle(html).overflow === "hidden"
+  ) {
     body.style.cssText += `
       overflow: auto !important;
       overflow-x: auto !important;
       overflow-y: auto !important;
       position: static !important;
     `;
-    
+
     html.style.cssText += `
       overflow: auto !important;
       overflow-x: auto !important;
       overflow-y: auto !important;
     `;
   }
+}
 
+function isDynamicPage() {
+  const initialHeight =
+    domState.initialScrollHeight || document.documentElement.scrollHeight;
+  const currentHeight = document.documentElement.scrollHeight;
+  return currentHeight > initialHeight * 1.1; // 10% or more growth indicates dynamic behavior.
 }
