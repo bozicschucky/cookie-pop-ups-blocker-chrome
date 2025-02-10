@@ -480,20 +480,52 @@ function isBannerPosition(style) {
 
 function removeLeftoverOverlays() {
   if (!domState.originalBodyStyles) saveScrollState();
-  document.body.style.overflow = "auto";
+
+  // Force reset scroll-blocking styles on both body and html
+  const body = document.body;
+  const html = document.documentElement;
+
+  // Reset all potential scroll-blocking styles
+  const scrollResetStyles = `
+    overflow: auto !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    position: static !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+  `;
+
+  body.style.cssText += scrollResetStyles;
+  html.style.cssText += scrollResetStyles;
+
+  // Remove overlays
   document.querySelectorAll("*").forEach((el) => {
     if (isLargeOverlay(el)) {
       el.style.display = "none";
-      const style = window.getComputedStyle(el);
-      if (
-        (style.position === "fixed" || style.position === "absolute") &&
-        isBannerPosition(style) &&
-        !isDynamicPage()
-      )
-        restoreScroll();
+      // Force scroll reset immediately after hiding each overlay
+      if (isScrollDisabled()) {
+        body.style.cssText += scrollResetStyles;
+        html.style.cssText += scrollResetStyles;
+      }
     }
   });
-  if (domState.bannerFound && !isDynamicPage()) restoreScroll();
+
+  // Final scroll restoration check
+  if (domState.scrollWasDisabled || isScrollDisabled()) {
+    requestAnimationFrame(() => {
+      body.style.cssText += scrollResetStyles;
+      html.style.cssText += scrollResetStyles;
+
+      // Restore scroll position if needed
+      if (domState.lastScrollPosition > 0) {
+        window.scrollTo({
+          top: domState.lastScrollPosition,
+          behavior: "auto",
+        });
+      }
+    });
+  }
 }
 
 /**********************
