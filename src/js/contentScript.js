@@ -314,6 +314,7 @@ function hideElementImmediately(element) {
   const style = window.getComputedStyle(element);
   const isBannerOrOverlay =
     style.position === "fixed" || style.position === "absolute";
+  const isLarge = isLargeOverlay(element); // Check if element is large overlay
 
   if (isBannerOrOverlay) {
     domState.bannerFound = true;
@@ -340,7 +341,7 @@ function hideElementImmediately(element) {
   removalQueue.add(element);
   popUpCount++;
 
-  if (isBannerOrOverlay && domState.scrollWasDisabled) {
+  if (isLarge && domState.scrollWasDisabled) {
     requestAnimationFrame(() => {
       enableScroll();
       if (domState.lastScrollPosition > 0) {
@@ -496,6 +497,7 @@ function removeLeftoverOverlays() {
     max-height: none !important;
   `;
 
+  let overlayRemoved = false; // Flag to track if any large overlay was removed
   body.style.cssText += scrollResetStyles;
   html.style.cssText += scrollResetStyles;
 
@@ -503,6 +505,7 @@ function removeLeftoverOverlays() {
   document.querySelectorAll("*").forEach((el) => {
     if (isLargeOverlay(el)) {
       el.style.display = "none";
+      overlayRemoved = true;
       // Force scroll reset immediately after hiding each overlay
       if (isScrollDisabled()) {
         body.style.cssText += scrollResetStyles;
@@ -512,7 +515,7 @@ function removeLeftoverOverlays() {
   });
 
   // Final scroll restoration check
-  if (domState.scrollWasDisabled || isScrollDisabled()) {
+  if (overlayRemoved && (domState.scrollWasDisabled || isScrollDisabled())) {
     requestAnimationFrame(() => {
       body.style.cssText += scrollResetStyles;
       html.style.cssText += scrollResetStyles;
