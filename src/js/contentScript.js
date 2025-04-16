@@ -7,10 +7,14 @@ const removalQueue = new Set();
 let removingElements = false;
 let popUpCount = 0;
 let extensionDisabled = false;
+let extensionActive = false; // Track if extension is actively working
 let lastCleanupTime = Date.now();
 let currentDomain = window.location.hostname;
 let detectionStatistics = { totalDetected: 0, falsePositives: 0 };
 let learnedPatterns = new Map(); // Store domain-specific learned patterns
+let autoDeactivationTimeout = null;
+const AUTO_DEACTIVATION_DELAY = 5000; // 5 seconds without finding a cookie banner before deactivating
+const INITIAL_DETECTION_PERIOD = 3000; // 3 second initial detection period
 
 // Dynamic configuration system that can be updated
 const CONFIG = {
@@ -117,9 +121,22 @@ const CONFIG = {
       ".login, .signup, .authentication",
       '[role="main"], [role="navigation"]',
       ".site-header, .main-header",
+      // Email protection
+      ".email, .mail-item, .message, .conversation, .thread",
+      '[role="listitem"]',
+      '[role="row"]',
+      ".email-row, .email-message, .mail-message",
+      '[data-testid*="email"], [data-testid*="mail"], [data-testid*="message"]',
+      // Gmail specific selectors
+      '.zA', '.aeF', '.Bs', '.G-atb'
     ],
-    protectedClasses: ["menu", "nav", "header", "content", "main", "footer"],
-    protectedRoles: ["navigation", "main", "banner", "contentinfo", "search", "form"],
+    protectedClasses: ["menu", "nav", "header", "content", "main", "footer", "email", "mail", "message", "thread"],
+    protectedRoles: ["navigation", "main", "banner", "contentinfo", "search", "form", "listbox", "list", "row", "gridcell", "rowgroup"],
+    protectedEmailDomains: [
+      "gmail.com", "mail.google.com", "outlook.com", "outlook.office365.com", 
+      "mail.yahoo.com", "protonmail.com", "aol.com", "icloud.com",
+      "mail.com", "zoho.com", "gmx.com", "tutanota.com"
+    ]
   },
   BANNER: {
     positions: ["fixed", "sticky", "absolute"],
@@ -284,6 +301,7 @@ function applyElementHiding(element) {
   hiddenElements.add(element);
   removalQueue.add(element);
   popUpCount++;
+  resetAutoDeactivation();
 }
 
 /**
@@ -560,6 +578,7 @@ function isProtectedElement(element) {
         return true;
     }
     if (isMainNavigation(element) || isMainContent(element)) return true;
+    if (CONFIG.PATTERNS.protectedEmailDomains.includes(currentDomain)) return true;
   } catch (e) {
     console.warn("Error in isProtectedElement:", e);
     return false;
@@ -701,6 +720,7 @@ function detectSimpleCookieBanner() {
     
     removeLeftoverOverlays();
     removeOverlays();
+    checkAutoDeactivation();
   } catch (e) {
     console.error("Error in detectSimpleCookieBanner:", e);
   }
@@ -928,6 +948,27 @@ function findDynamicOverlays() {
     });
   } catch (e) {
     console.error("Error finding dynamic overlays:", e);
+  }
+}
+
+/**********************
+ * Auto-Deactivation Logic
+ **********************/
+function resetAutoDeactivation() {
+  if (autoDeactivationTimeout) {
+    clearTimeout(autoDeactivationTimeout);
+  }
+  autoDeactivationTimeout = setTimeout(() => {
+    if (hiddenElements.size === 0) {
+      extensionDisabled = true;
+      console.log("Auto-deactivation: No cookie banners detected, extension disabled.");
+    }
+  }, AUTO_DEACTIVATION_DELAY);
+}
+
+function checkAutoDeactivation() {
+  if (hiddenElements.size === 0) {
+    resetAutoDeactivation();
   }
 }
 
