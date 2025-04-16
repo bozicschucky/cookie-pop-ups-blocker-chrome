@@ -4,13 +4,12 @@
 <head>
   <link rel="stylesheet" href="/src/css/style.css">
   <style>
-    /* Overall page styling with a yellowish background */
     body {
       font-family: Arial, sans-serif;
       padding: 16px;
-      /* light yellow */
       background-color: #fff9c4;
       color: #333;
+      width: 350px;
     }
   
     h3 {
@@ -108,17 +107,89 @@
     html,
     body {
       border: 2px solid #fff9c4;
-      /* yellow border */
       outline: none;
       border-radius: 10px;
       overflow: hidden;
+    }
+
+    .section {
+      margin-top: 15px;
+      padding-top: 8px;
+      border-top: 1px solid #e6dd9a;
+    }
+
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .section-title::after {
+      content: "▼";
+      font-size: 0.8em;
+      margin-left: 5px;
+    }
+
+    .section-title.collapsed::after {
+      content: "►";
+    }
+
+    .section-content {
+      padding-left: 10px;
+      max-height: 300px;
+      overflow: hidden;
+      transition: max-height 0.2s ease-out;
+    }
+
+    .section-content.collapsed {
+      max-height: 0;
+      overflow: hidden;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .form-group select, .form-group button {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+    }
+
+    .form-group button {
+      background-color: #fdd835;
+      border-color: #fbc02d;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+
+    .form-group button:hover {
+      background-color: #fbc02d;
+    }
+
+    .status-message {
+      color: #4caf50;
+      font-size: 0.9em;
+      margin-top: 5px;
+      font-style: italic;
+      height: 20px;
     }
   </style>
 </head>
 
 <body>
   <h3>Pop up blocker</h3>
-  <!-- Disable extension functionality -->
+
   <div class="toggle-container">
     <label class="container">
       <input type="checkbox" id="disable-extension-check-input">
@@ -127,15 +198,35 @@
     </label>
   </div>
 
-  <!-- Pop ups counter -->
   <div class="count-container">
     <span>Pop ups removed: </span>
     <span id="pop-up-count" class="count-indicator">0</span>
   </div>
 
-  <div id="html"></div>
-
+  <div class="section">
+    <div class="section-title" id="settings-toggle">Advanced Settings</div>
+    <div class="section-content" id="settings-content">
+      <div class="form-group">
+        <label for="detection-strength">Detection Strength:</label>
+        <select id="detection-strength">
+          <option value="low">Low (fewer false positives)</option>
+          <option value="medium" selected>Medium (balanced)</option>
+          <option value="high">High (catch more popups)</option>
+        </select>
+      </div>
+      <div class="toggle-container form-group">
+        <label class="container">
+          <input type="checkbox" id="enable-learning" checked>
+          <span class="arrow-marker"></span>
+          Enable Adaptive Learning
+        </label>
+      </div>
+      <div class="form-group">
+        <button id="reset-patterns">Reset Patterns for This Site</button>
+        <div class="status-message" id="reset-status"></div>
+      </div>
+    </div>
+  </div>
 </body>
 <script src="/src/js/popup.js"></script>
-
 </html>

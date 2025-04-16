@@ -1,0 +1,24 @@
+{
+  "name": "cookie-popup-blocker",
+  "version": "1.0.0",
+  "description": "A Chrome extension that blocks cookie popups and sign-in/up forms",
+  "main": "index.js",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "package": "node scripts/package.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chrome",
+    "extension",
+    "cookie",
+    "popup",
+    "blocker"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "adm-zip": "^0.5.10",
+    "fs-extra": "^11.1.1"
+  }
+}
